@@ -22,11 +22,39 @@ local PlayerTab = Window:CreateTab("Player", 4483362458)
 -- Extended Hitbox variables
 local extendedHitboxEnabled = false
 local extendedHitboxConnection = nil
-local EXTENDED_RADIUS = 15
-local TACKLE_SPEED = 25
+local HITBOX_RADIUS = 15
 local EXTENDED_KEY = Enum.KeyCode.Zero -- keybind = 0
+local hitboxSpheres = {} -- store spheres for each player
 
--- Create toggle for Extended Hitbox
+-- Functions to show/hide spheres
+local function showHitbox(hrp)
+    if hitboxSpheres[hrp] then return end
+    local sphere = Instance.new("SphereHandleAdornment")
+    sphere.Adornee = hrp
+    sphere.Radius = HITBOX_RADIUS
+    sphere.Color3 = Color3.fromRGB(255, 0, 0)
+    sphere.Transparency = 0.4
+    sphere.AlwaysOnTop = true
+    sphere.ZIndex = 5
+    sphere.Parent = game.CoreGui
+    hitboxSpheres[hrp] = sphere
+
+    hrp.AncestryChanged:Connect(function(_, parent)
+        if not parent and hitboxSpheres[hrp] then
+            hitboxSpheres[hrp]:Destroy()
+            hitboxSpheres[hrp] = nil
+        end
+    end)
+end
+
+local function hideAllHitboxes()
+    for _, sphere in pairs(hitboxSpheres) do
+        sphere:Destroy()
+    end
+    hitboxSpheres = {}
+end
+
+-- Toggle for Extended Hitbox
 local ExtendedHitboxToggle = PlayerTab:CreateToggle({
     Name = "Extended Hitbox",
     CurrentValue = false,
@@ -41,47 +69,22 @@ local ExtendedHitboxToggle = PlayerTab:CreateToggle({
 
         if extendedHitboxEnabled then
             extendedHitboxConnection = RunService.Heartbeat:Connect(function()
-                if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
-                local myHRP = player.Character.HumanoidRootPart
-
                 for _, otherPlayer in ipairs(Players:GetPlayers()) do
                     if otherPlayer ~= player and otherPlayer.Character then
                         local hrp = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
                         if hrp then
-                            local distance = (hrp.Position - myHRP.Position).Magnitude
-                            if distance <= EXTENDED_RADIUS then
-                                local direction = (hrp.Position - myHRP.Position).Unit
-                                local velocity = direction * TACKLE_SPEED
-                                if not myHRP:FindFirstChild("TackleVelocity") then
-                                    local bv = Instance.new("BodyVelocity")
-                                    bv.Name = "TackleVelocity"
-                                    bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-                                    bv.Velocity = velocity
-                                    bv.Parent = myHRP
-                                else
-                                    myHRP.TackleVelocity.Velocity = velocity
-                                end
-                            else
-                                if myHRP:FindFirstChild("TackleVelocity") then
-                                    myHRP.TackleVelocity:Destroy()
-                                end
-                            end
+                            showHitbox(hrp)
                         end
                     end
                 end
             end)
         else
-            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                local myHRP = player.Character.HumanoidRootPart
-                if myHRP:FindFirstChild("TackleVelocity") then
-                    myHRP.TackleVelocity:Destroy()
-                end
-            end
+            hideAllHitboxes()
         end
     end
 })
 
--- Keybind to toggle Extended Hitbox (0)
+-- Keybind to toggle Extended Hitbox
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.KeyCode == EXTENDED_KEY then
