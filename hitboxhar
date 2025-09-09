@@ -1,0 +1,91 @@
+wait(0.2)
+
+-- Load Rayfield
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+
+-- Create window
+local Window = Rayfield:CreateWindow({
+    Name = "Hitboxhar",
+    Icon = 93973861464448,
+    Theme = "Blood",
+    ToggleUIKeybind = "K",
+    ConfigurationSaving = {Enabled = true, FileName = "Big Hub"}
+})
+
+-- Player tab
+local PlayerTab = Window:CreateTab("Player", 4483362458)
+
+-- Extended Hitbox variables
+local extendedHitboxEnabled = false
+local extendedHitboxConnection = nil
+local EXTENDED_RADIUS = 15
+local TACKLE_SPEED = 25
+local EXTENDED_KEY = Enum.KeyCode.Zero -- keybind = 0
+
+-- Create toggle for Extended Hitbox
+local ExtendedHitboxToggle = PlayerTab:CreateToggle({
+    Name = "Extended Hitbox",
+    CurrentValue = false,
+    Flag = "ExtendedHitbox_Toggle",
+    Callback = function(enabled)
+        extendedHitboxEnabled = enabled
+
+        if extendedHitboxConnection then
+            extendedHitboxConnection:Disconnect()
+            extendedHitboxConnection = nil
+        end
+
+        if extendedHitboxEnabled then
+            extendedHitboxConnection = RunService.Heartbeat:Connect(function()
+                if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+                local myHRP = player.Character.HumanoidRootPart
+
+                for _, otherPlayer in ipairs(Players:GetPlayers()) do
+                    if otherPlayer ~= player and otherPlayer.Character then
+                        local hrp = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+                        if hrp then
+                            local distance = (hrp.Position - myHRP.Position).Magnitude
+                            if distance <= EXTENDED_RADIUS then
+                                local direction = (hrp.Position - myHRP.Position).Unit
+                                local velocity = direction * TACKLE_SPEED
+                                if not myHRP:FindFirstChild("TackleVelocity") then
+                                    local bv = Instance.new("BodyVelocity")
+                                    bv.Name = "TackleVelocity"
+                                    bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+                                    bv.Velocity = velocity
+                                    bv.Parent = myHRP
+                                else
+                                    myHRP.TackleVelocity.Velocity = velocity
+                                end
+                            else
+                                if myHRP:FindFirstChild("TackleVelocity") then
+                                    myHRP.TackleVelocity:Destroy()
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        else
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local myHRP = player.Character.HumanoidRootPart
+                if myHRP:FindFirstChild("TackleVelocity") then
+                    myHRP.TackleVelocity:Destroy()
+                end
+            end
+        end
+    end
+})
+
+-- Keybind to toggle Extended Hitbox (0)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == EXTENDED_KEY then
+        extendedHitboxEnabled = not extendedHitboxEnabled
+        ExtendedHitboxToggle:Set(extendedHitboxEnabled)
+    end
+end)
